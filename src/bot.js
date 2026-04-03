@@ -228,14 +228,21 @@ bot.on('web_app_data', (ctx) => {
 console.log('⏳ Запускаю бота...');
 console.log('🔑 Токен:', botToken.slice(0, 10) + '...');
 
+// Сервер стартует сразу — Railway требует HTTP ответ
+startServer(bot);
+
 bot.launch()
   .then(() => {
-    console.log('🤖 Бот запущен и работает! Не закрывай это окно.');
-    startServer(bot);
+    console.log('🤖 Бот запущен и работает!');
   })
   .catch((err) => {
-    console.error('❌ Ошибка запуска:', err.message);
-    process.exit(1);
+    // 409 — другой экземпляр уже работает, не падаем — HTTP сервер продолжает работать
+    if (err.message && err.message.includes('409')) {
+      console.warn('⚠️ Бот уже запущен в другом месте, HTTP сервер продолжает работать');
+    } else {
+      console.error('❌ Ошибка запуска:', err.message);
+      process.exit(1);
+    }
   });
 
 process.once('SIGINT', () => { console.log('Останавливаю бота...'); bot.stop('SIGINT'); });

@@ -44,6 +44,13 @@ function startServer(bot) {
       return;
     }
 
+    // Health check для Railway
+    if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, status: 'running' }));
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/products') {
       try {
         const data = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
