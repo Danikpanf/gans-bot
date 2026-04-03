@@ -35,7 +35,7 @@ function startServer(bot) {
   const server = http.createServer((req, res) => {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -117,8 +117,9 @@ function startServer(bot) {
     }
   });
 
-  server.listen(3002, () => {
-    console.log('🌐 API сервер запущен на порту 3002');
+  const PORT = process.env.PORT || 3002;
+  server.listen(PORT, () => {
+    console.log(`🌐 API сервер запущен на порту ${PORT}`);
   });
 }
 
