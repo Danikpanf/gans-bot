@@ -9,6 +9,7 @@ const {
   startSetStock, continueSetStock
 } = require('./handlers/adminHandler');
 const { isSeller, sellerMenu, sellerListOrders, completeOrder, cancelOrder } = require('./handlers/sellerHandler');
+const { startServer } = require('./server');
 
 if (!botToken) {
   console.error('❌ BOT_TOKEN не найден в .env файле!');
@@ -230,6 +231,7 @@ console.log('🔑 Токен:', botToken.slice(0, 10) + '...');
 bot.launch()
   .then(() => {
     console.log('🤖 Бот запущен и работает! Не закрывай это окно.');
+    startServer(bot);
   })
   .catch((err) => {
     console.error('❌ Ошибка запуска:', err.message);
