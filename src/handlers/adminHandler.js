@@ -27,6 +27,7 @@ function saveProducts(products) {
 
 function syncToWebApp() {
   try {
+    if (!fs.existsSync(webAppProductsPath)) return; // на Railway папки web-app нет
     const data = fs.readFileSync(productsPath, 'utf8');
     fs.writeFileSync(webAppProductsPath, data);
     console.log('✅ Синхронизировано с web-app');
