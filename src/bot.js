@@ -228,22 +228,28 @@ bot.on('web_app_data', (ctx) => {
 console.log('⏳ Запускаю бота...');
 console.log('🔑 Токен:', botToken.slice(0, 10) + '...');
 
-// Сервер стартует сразу — Railway требует HTTP ответ
+// Сервер стартует сразу — Railway требует HTTP ответ до запуска бота
 startServer(bot);
 
-bot.launch()
-  .then(() => {
-    console.log('🤖 Бот запущен и работает!');
-  })
-  .catch((err) => {
-    // 409 — другой экземпляр уже работает, не падаем — HTTP сервер продолжает работать
-    if (err.message && err.message.includes('409')) {
-      console.warn('⚠️ Бот уже запущен в другом месте, HTTP сервер продолжает работать');
-    } else {
+// Используем webhook на Railway, polling локально
+const RAILWAY_URL = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PUBLIC_DOMAIN;
+
+if (RAILWAY_URL) {
+  // На Railway — webhook режим
+  const webhookUrl = `https://${RAILWAY_URL}/webhook`;
+  bot.telegram.setWebhook(webhookUrl)
+    .then(() => console.log(`🤖 Webhook установлен: ${webhookUrl}`))
+    .catch(err => console.error('Ошибка webhook:', err.message));
+  console.log('🤖 Бот запущен в webhook режиме');
+} else {
+  // Локально — polling режим
+  bot.launch()
+    .then(() => console.log('🤖 Бот запущен в polling режиме'))
+    .catch(err => {
       console.error('❌ Ошибка запуска:', err.message);
       process.exit(1);
-    }
-  });
+    });
+}
 
 process.once('SIGINT', () => { console.log('Останавливаю бота...'); bot.stop('SIGINT'); });
 process.once('SIGTERM', () => { console.log('Останавливаю бота...'); bot.stop('SIGTERM'); });

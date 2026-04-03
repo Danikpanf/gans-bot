@@ -63,6 +63,23 @@ function startServer(bot) {
       return;
     }
 
+    if (req.method === 'POST' && req.url === '/webhook') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const update = JSON.parse(body);
+          bot.handleUpdate(update);
+          res.writeHead(200);
+          res.end('ok');
+        } catch (e) {
+          res.writeHead(500);
+          res.end();
+        }
+      });
+      return;
+    }
+
     if (req.method === 'POST' && req.url === '/order') {
       let body = '';
       req.on('data', chunk => body += chunk);
