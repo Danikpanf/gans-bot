@@ -48,8 +48,9 @@ function createOrder(userId, items, totalAmount, gameUsername) {
   
   // Обновление заказов у пользователя
   const users = loadUsers();
-  if (users[userId]) {
-    users[userId].orders.push(newOrder.id);
+  const uidKey = userId != null ? String(userId) : userId;
+  if (uidKey != null && users[uidKey]) {
+    users[uidKey].orders.push(newOrder.id);
     // Сохранение пользователей происходит в startHandler
     fs.writeFileSync(path.join(__dirname, '../../data/users.json'), JSON.stringify(users, null, 2));
   }
@@ -60,7 +61,7 @@ function createOrder(userId, items, totalAmount, gameUsername) {
 // Получение заказов пользователя
 function getUserOrders(userId) {
   const orders = loadOrders();
-  return orders.filter(order => order.userId === userId);
+  return orders.filter(order => String(order.userId) === String(userId));
 }
 
 // Обработчик кнопки "Мои заказы"

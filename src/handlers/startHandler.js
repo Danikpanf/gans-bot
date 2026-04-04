@@ -1,7 +1,6 @@
 const { Markup } = require('telegraf');
 const fs = require('fs');
 const path = require('path');
-const { webAppUrl } = require('../config');
 
 const usersPath = path.join(__dirname, '../../data/users.json');
 
@@ -56,22 +55,14 @@ function startHandler(ctx) {
   // Регистрация пользователя
   const isNewUser = registerUser(userId, username);
   
-  // Приветственное сообщение
   const welcomeMessage = `
-👋 Добро пожаловать в магазин Solor Piece!
+👋 Добро пожаловать в Solor Piece!
 
-Здесь вы можете приобрести:
-💎 Игровую валюту
-🎁 Предметы и скины
-👤 Аккаунты
-
-Нажмите на кнопку ниже, чтобы открыть магазин!
+Если нужна помощь — нажми кнопку ниже.
   `;
-  
+
   ctx.reply(welcomeMessage, Markup.inlineKeyboard([
-    Markup.button.webApp('🛒 Открыть магазин', webAppUrl),
-    Markup.button.callback('📦 Мои заказы', 'my_orders'),
-    Markup.button.callback('💬 Поддержка', 'support')
+    [Markup.button.callback('💬 Поддержка', 'support')]
   ]));
   
   if (isNewUser) {

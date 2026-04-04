@@ -10,6 +10,7 @@ const {
 } = require('./handlers/adminHandler');
 const { isSeller, sellerMenu, sellerListOrders, completeOrder, cancelOrder } = require('./handlers/sellerHandler');
 const { startServer } = require('./server');
+const { formatSellerNotification, sumQty } = require('./orderMessageHelpers');
 
 if (!botToken) {
   console.error('❌ BOT_TOKEN не найден в .env файле!');
@@ -178,7 +179,7 @@ bot.on('web_app_data', (ctx) => {
   console.log('📩 Получены данные из WebApp:', ctx.webAppData?.data);
   try {
     const data = JSON.parse(ctx.webAppData.data);
-    const { items, totalAmount, gameUsername, userId } = data;
+    const { items, totalAmount, gameUsername, userId, userName: dataUserName, telegramUser: dataTgUser } = data;
 
     // Сохраняем заказ
     const { createOrder } = require('./handlers/ordersHandler');
@@ -189,6 +190,18 @@ bot.on('web_app_data', (ctx) => {
       gameUsername
     );
 
+    const from = ctx.from;
+    const telegramUser = dataTgUser || {
+      id: from.id,
+      first_name: from.first_name,
+      last_name: from.last_name,
+      username: from.username,
+      language_code: from.language_code,
+      is_premium: from.is_premium
+    };
+    const userName = dataUserName || (from.username ? `@${from.username}` : from.first_name);
+    const allOrderQty = sumQty(items);
+
     // Подтверждение пользователю
     ctx.reply(
       `✅ Заказ #${order.id} оформлен!\n\n` +
@@ -198,23 +211,45 @@ bot.on('web_app_data', (ctx) => {
       `Ожидай — администратор свяжется с тобой!`
     );
 
-    // Уведомление всем админам и продавцам
     const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
     const sellerIds = (process.env.SELLER_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
-    const notifyIds = [...new Set([...adminIds, ...sellerIds])];
-    const user = ctx.from;
-    const userName = user.username ? `@${user.username}` : user.first_name;
+
     const adminMsg =
       `🛒 Новый заказ #${order.id}!\n\n` +
-      `👤 Покупатель: ${userName} (ID: ${user.id})\n` +
+      `👤 Покупатель: ${userName} (ID: ${from.id})\n` +
       `🎮 Игровой ник: ${gameUsername}\n\n` +
       `Товары:\n${items.map(i => `• ${i.name} x${i.qty} — ${i.price * i.qty} ₽`).join('\n')}\n\n` +
       `💰 Итого: ${totalAmount} ₽\n\n` +
       `Используй /seller для управления заказами`;
 
-    notifyIds.forEach(id => {
+    adminIds.forEach(id => {
       bot.telegram.sendMessage(id, adminMsg).catch(err => {
-        console.error(`Не удалось отправить уведомление ${id}:`, err.message);
+        console.error(`Не удалось отправить уведомление админу ${id}:`, err.message);
+      });
+    });
+
+    const notifiedSellers = new Set();
+    items.forEach(item => {
+      const sellersToNotify = item.sellerNotify ? [item.sellerNotify] : sellerIds;
+      sellersToNotify.forEach(sellerId => {
+        if (!sellerId || notifiedSellers.has(sellerId) || adminIds.includes(sellerId)) return;
+        notifiedSellers.add(sellerId);
+        const sellerLines = items.filter(i =>
+          item.sellerNotify ? i.sellerNotify === item.sellerNotify : true
+        );
+        const sellerMsg = formatSellerNotification({
+          orderId: order.id,
+          telegramUser,
+          userId: userId ?? String(from.id),
+          userName,
+          gameUsername,
+          sellerLines,
+          totalAmount,
+          allOrderQty
+        });
+        bot.telegram.sendMessage(sellerId, sellerMsg).catch(err => {
+          console.error(`Не удалось отправить уведомление продавцу ${sellerId}:`, err.message);
+        });
       });
     });
 

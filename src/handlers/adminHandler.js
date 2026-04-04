@@ -268,7 +268,15 @@ function finishAddProduct(ctx, state) {
     active: true
   };
 
-  // Если есть фото — получаем реальный URL через Telegram API
+  const saveAndReply = () => {
+    products.push(newProduct);
+    saveProducts(products);
+    ctx.reply(
+      `✅ Товар добавлен!\n\nID: ${newProduct.id}\nНазвание: ${newProduct.name}\nЦена: ${newProduct.price} ₽\nТип: ${newProduct.type}`,
+      Markup.inlineKeyboard([[Markup.button.callback('📋 Список товаров', 'admin_list')]])
+    );
+  };
+
   if (state.fileId) {
     const https = require('https');
     https.get(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${state.fileId}`, (res) => {
@@ -281,22 +289,14 @@ function finishAddProduct(ctx, state) {
             newProduct.image = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${result.result.file_path}`;
           }
         } catch (e) {}
-        products.push(newProduct);
-        saveProducts(products);
+        saveAndReply();
       });
     }).on('error', () => {
-      products.push(newProduct);
-      saveProducts(products);
+      saveAndReply();
     });
   } else {
-    products.push(newProduct);
-    saveProducts(products);
+    saveAndReply();
   }
-
-  ctx.reply(
-    `✅ Товар добавлен!\n\nID: ${newProduct.id}\nНазвание: ${newProduct.name}\nЦена: ${newProduct.price} ₽\nТип: ${newProduct.type}`,
-    Markup.inlineKeyboard([[Markup.button.callback('📋 Список товаров', 'admin_list')]])
-  );
 }
 
 function addProduct(ctx) {
