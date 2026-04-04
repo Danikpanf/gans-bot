@@ -1,35 +1,8 @@
 const http = require('http');
-const { loadOrders } = require('./handlers/ordersHandler');
+const { createOrder } = require('./handlers/ordersHandler');
+const { formatSellerNotification, sumQty } = require('./orderMessageHelpers');
 const fs = require('fs');
 const path = require('path');
-
-const ordersPath = path.join(__dirname, '../data/orders.json');
-
-function saveOrders(orders) {
-  fs.writeFileSync(ordersPath, JSON.stringify(orders, null, 2));
-}
-
-function createOrderDirect(userId, items, totalAmount, gameUsername) {
-  let orders = [];
-  try {
-    if (fs.existsSync(ordersPath)) {
-      orders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
-    }
-  } catch (e) {}
-
-  const newOrder = {
-    id: Date.now().toString(),
-    userId,
-    items,
-    totalAmount,
-    gameUsername,
-    status: 'В обработке',
-    createdAt: new Date().toISOString()
-  };
-  orders.push(newOrder);
-  saveOrders(orders);
-  return newOrder;
-}
 
 function startServer(bot) {
   const server = http.createServer((req, res) => {
@@ -51,6 +24,40 @@ function startServer(bot) {
       return;
     }
 
+    if (req.method === 'GET' && req.url === '/orders') {
+      try {
+        const ordersPath = path.join(__dirname, '../data/orders.json');
+        const data = fs.existsSync(ordersPath) ? fs.readFileSync(ordersPath, 'utf8') : '[]';
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(data);
+      } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/orders/update-status') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { orderId, status } = JSON.parse(body);
+          const ordersPath = path.join(__dirname, '../data/orders.json');
+          const orders = JSON.parse(fs.existsSync(ordersPath) ? fs.readFileSync(ordersPath, 'utf8') : '[]');
+          const order = orders.find(o => o.id === orderId);
+          if (order) order.status = status;
+          fs.writeFileSync(ordersPath, JSON.stringify(orders, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/products') {
       try {
         const data = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
@@ -60,6 +67,31 @@ function startServer(bot) {
         res.writeHead(500);
         res.end(JSON.stringify({ error: e.message }));
       }
+      return;
+    }
+
+    if (req.method === 'POST' && req.url === '/update-stock') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { items } = JSON.parse(body);
+          const productsPath = path.join(__dirname, '../data/products.json');
+          const products = JSON.parse(fs.readFileSync(productsPath, 'utf8'));
+          items.forEach(item => {
+            const product = products.find(p => p.id === item.id);
+            if (product && product.stock !== null && product.stock !== undefined) {
+              product.stock = Math.max(0, product.stock - item.qty);
+            }
+          });
+          fs.writeFileSync(productsPath, JSON.stringify(products, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) {
+          res.writeHead(500);
+          res.end(JSON.stringify({ error: e.message }));
+        }
+      });
       return;
     }
 
@@ -86,9 +118,14 @@ function startServer(bot) {
       req.on('end', () => {
         try {
           const data = JSON.parse(body);
-          const { items, totalAmount, gameUsername, userId, userName } = data;
+          const { items, totalAmount, gameUsername, userId, userName, telegramUser } = data;
+          if (!items || !Array.isArray(items)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: 'items (array) required' }));
+            return;
+          }
 
-          const order = createOrderDirect(
+          const order = createOrder(
             userId,
             items.map(i => `${i.name} x${i.qty}`),
             totalAmount,
@@ -126,6 +163,7 @@ function startServer(bot) {
           // Уведомление конкретным продавцам товаров
           const sellerIds = (process.env.SELLER_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
           const notifiedSellers = new Set();
+          const allOrderQty = sumQty(items);
 
           items.forEach(item => {
             const sellersToNotify = item.sellerNotify
@@ -136,14 +174,19 @@ function startServer(bot) {
               if (!sellerId || notifiedSellers.has(sellerId) || adminIds.includes(sellerId)) return;
               notifiedSellers.add(sellerId);
 
-              const sellerMsg =
-                `🔔 Новый заказ на твой товар!\n\n` +
-                `👤 Покупатель: ${userName || 'Неизвестен'}\n` +
-                `🆔 Telegram ID: ${userId}\n` +
-                `🎮 Ник в игре: ${gameUsername}\n\n` +
-                `Товары:\n${items.filter(i => item.sellerNotify ? i.sellerNotify === item.sellerNotify : true).map(i => `• ${i.name} x${i.qty} — ${i.price * i.qty} ₽`).join('\n')}\n\n` +
-                `💰 Сумма: ${totalAmount} ₽\n\n` +
-                `Свяжись с покупателем и выдай товар!`;
+              const sellerLines = items.filter(i =>
+                item.sellerNotify ? i.sellerNotify === item.sellerNotify : true
+              );
+              const sellerMsg = formatSellerNotification({
+                orderId: order.id,
+                telegramUser,
+                userId,
+                userName,
+                gameUsername,
+                sellerLines,
+                totalAmount,
+                allOrderQty
+              });
 
               bot.telegram.sendMessage(sellerId, sellerMsg).catch(e => {
                 console.error(`Ошибка отправки продавцу ${sellerId}:`, e.message);
@@ -161,10 +204,11 @@ function startServer(bot) {
           res.end(JSON.stringify({ ok: false, error: e.message }));
         }
       });
-    } else {
-      res.writeHead(404);
-      res.end();
+      return;
     }
+
+    res.writeHead(404);
+    res.end();
   });
 
   const PORT = process.env.PORT || 3002;
