@@ -1,0 +1,53 @@
+[
+  {
+    "id": 1,
+    "name": "тру айзен",
+    "price": 50,
+    "description": "укцуауку аук уца уцкуц у",
+    "emoji": "🎁",
+    "image": "https://api.telegram.org/file/bot8625129574:AAGSC0K4BUaleC9yioaldx0Cee5E3I9Qenk/photos/file_0.jpg",
+    "fileId": "AgACAgIAAxkBAAPtac2WMwbcEDEjwBwrhpQtucAGAAGRAAJeE2sbAAHVcErp1Yqdy-iZWQEAAwIAA20AAzoE",
+    "type": "item",
+    "active": true,
+    "hit": true,
+    "sellerUsername": "@продавец1"
+  },
+  {
+    "id": 2,
+    "name": "test",
+    "price": 50,
+    "description": "testn1",
+    "emoji": "🎁",
+    "image": "https://api.telegram.org/file/bot8625129574:AAGSC0K4BUaleC9yioaldx0Cee5E3I9Qenk/photos/file_2.jpg",
+    "fileId": "AgACAgIAAxkBAAIBj2nO5La7NNs5EDwSncU33M5J6Hu5AAJ4EWsbdI54Sp1XoLrGVDKPAQADAgADeQADOgQ",
+    "type": "sword",
+    "sellerNotify": "6381019838",
+    "sellerUsername": "@продавец2",
+    "active": true
+  },
+  {
+    "id": 3,
+    "name": "тестлонги",
+    "price": 100,
+    "description": "1000000 110000 1111000",
+    "emoji": "🎁",
+    "image": "https://api.telegram.org/file/bot8625129574:AAGSC0K4BUaleC9yioaldx0Cee5E3I9Qenk/photos/file_3.jpg",
+    "fileId": "AgACAgIAAxkBAAIBr2nPtv-KvitlODZvdr0M1hvTKIMhAAJ8FWsbdI54ShhK-puH3YYUAQADAgADeAADOgQ",
+    "type": "sword",
+    "sellerNotify": "7341189557",
+    "active": true
+  },
+  {
+    "id": 4,
+    "name": "тест2",
+    "price": 1000,
+    "description": "1000 100 100 100 1001",
+    "emoji": "⚔️",
+    "image": null,
+    "fileId": null,
+    "type": "item",
+    "sellerNotify": "7341189557",
+    "stock": 10000,
+    "active": true
+  }
+]
