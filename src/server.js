@@ -106,10 +106,8 @@ function startServer(bot) {
             ).catch(e => console.error('Ошибка отправки покупателю:', e.message));
           }
 
-          // Уведомление админам и продавцам
+          // Уведомление админам
           const adminIds = (process.env.ADMIN_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
-          const sellerIds = (process.env.SELLER_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
-          const notifyIds = [...new Set([...adminIds, ...sellerIds])];
 
           const adminMsg =
             `🛒 Новый заказ #${order.id}!\n\n` +
@@ -119,9 +117,37 @@ function startServer(bot) {
             `💰 Итого: ${totalAmount} ₽\n\n` +
             `Используй /seller для управления заказами`;
 
-          notifyIds.forEach(id => {
+          adminIds.forEach(id => {
             bot.telegram.sendMessage(id, adminMsg).catch(e => {
               console.error(`Ошибка отправки уведомления ${id}:`, e.message);
+            });
+          });
+
+          // Уведомление конкретным продавцам товаров
+          const sellerIds = (process.env.SELLER_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
+          const notifiedSellers = new Set();
+
+          items.forEach(item => {
+            const sellersToNotify = item.sellerNotify
+              ? [item.sellerNotify]
+              : sellerIds;
+
+            sellersToNotify.forEach(sellerId => {
+              if (!sellerId || notifiedSellers.has(sellerId) || adminIds.includes(sellerId)) return;
+              notifiedSellers.add(sellerId);
+
+              const sellerMsg =
+                `🔔 Новый заказ на твой товар!\n\n` +
+                `👤 Покупатель: ${userName || 'Неизвестен'}\n` +
+                `🆔 Telegram ID: ${userId}\n` +
+                `🎮 Ник в игре: ${gameUsername}\n\n` +
+                `Товары:\n${items.filter(i => item.sellerNotify ? i.sellerNotify === item.sellerNotify : true).map(i => `• ${i.name} x${i.qty} — ${i.price * i.qty} ₽`).join('\n')}\n\n` +
+                `💰 Сумма: ${totalAmount} ₽\n\n` +
+                `Свяжись с покупателем и выдай товар!`;
+
+              bot.telegram.sendMessage(sellerId, sellerMsg).catch(e => {
+                console.error(`Ошибка отправки продавцу ${sellerId}:`, e.message);
+              });
             });
           });
 
