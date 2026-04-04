@@ -50,4 +50,18 @@
     "stock": 10000,
     "active": true
   }
+,
+  {
+    "id": 5,
+    "name": "Тестовый товар",
+    "price": 1,
+    "description": "Тестовый товар для проверки уведомлений",
+    "emoji": "🧪",
+    "image": null,
+    "fileId": null,
+    "type": "item",
+    "sellerNotify": "6365384819",
+    "sellerUsername": "@night100rev",
+    "active": true
+  }
 ]
