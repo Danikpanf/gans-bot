@@ -1,8 +1,35 @@
 const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 const { createOrder } = require('./handlers/ordersHandler');
 const { formatSellerNotification, sumQty } = require('./orderMessageHelpers');
 const fs = require('fs');
 const path = require('path');
+
+function httpsGetBuffer(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (r) => {
+      const chunks = [];
+      r.on('data', c => chunks.push(c));
+      r.on('end', () => resolve({ status: r.statusCode, headers: r.headers, body: Buffer.concat(chunks) }));
+    }).on('error', reject);
+  });
+}
+
+/** Убираем из API ссылки с токеном бота — картинки грузим через /tg-photo по fileId */
+function sanitizeProductsJson(raw) {
+  try {
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return raw;
+    const next = list.map((p) => {
+      const img = p.image && String(p.image).includes('api.telegram.org/file/bot');
+      return img ? { ...p, image: null } : p;
+    });
+    return JSON.stringify(next);
+  } catch {
+    return raw;
+  }
+}
 
 function startServer(bot) {
   const server = http.createServer((req, res) => {
@@ -21,6 +48,29 @@ function startServer(bot) {
     if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, status: 'running' }));
+      return;
+    }
+
+    // Прокси картинок из Telegram по fileId
+    if (req.method === 'GET' && req.url.startsWith('/tg-photo')) {
+      const fileId = new URL(req.url, 'http://localhost').searchParams.get('file_id');
+      if (!fileId) { res.writeHead(400); res.end(); return; }
+      const BOT_TOKEN = process.env.BOT_TOKEN;
+      https.get(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => {
+          try {
+            const { result } = JSON.parse(data);
+            if (!result?.file_path) { res.writeHead(404); res.end(); return; }
+            const imgUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${result.file_path}`;
+            https.get(imgUrl, (imgRes) => {
+              res.writeHead(200, { 'Content-Type': imgRes.headers['content-type'] || 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+              imgRes.pipe(res);
+            }).on('error', () => { res.writeHead(500); res.end(); });
+          } catch { res.writeHead(500); res.end(); }
+        });
+      }).on('error', () => { res.writeHead(500); res.end(); });
       return;
     }
 
@@ -58,11 +108,67 @@ function startServer(bot) {
       return;
     }
 
+    if (req.method === 'GET' && req.url.startsWith('/tg-photo')) {
+      (async () => {
+        try {
+          const u = new URL(req.url, 'http://localhost');
+          const fileId = u.searchParams.get('file_id');
+          const token = process.env.BOT_TOKEN;
+          if (!fileId || !token) {
+            res.writeHead(fileId ? 500 : 400);
+            res.end();
+            return;
+          }
+          const meta = await httpsGetBuffer(
+            `https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`
+          );
+          if (meta.status !== 200) {
+            res.writeHead(502);
+            res.end();
+            return;
+          }
+          let json;
+          try {
+            json = JSON.parse(meta.body.toString('utf8'));
+          } catch {
+            res.writeHead(502);
+            res.end();
+            return;
+          }
+          if (!json.ok || !json.result?.file_path) {
+            res.writeHead(404);
+            res.end();
+            return;
+          }
+          const fileUrl = `https://api.telegram.org/file/bot${token}/${json.result.file_path}`;
+          const fileRes = await httpsGetBuffer(fileUrl);
+          if (fileRes.status !== 200) {
+            res.writeHead(fileRes.status === 404 ? 404 : 502);
+            res.end();
+            return;
+          }
+          const ct = fileRes.headers['content-type'] || 'image/jpeg';
+          res.writeHead(200, {
+            'Content-Type': ct,
+            'Cache-Control': 'public, max-age=86400',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(fileRes.body);
+        } catch {
+          if (!res.writableEnded) {
+            res.writeHead(502);
+            res.end();
+          }
+        }
+      })();
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/products') {
       try {
         const data = fs.readFileSync(path.join(__dirname, '../data/products.json'), 'utf8');
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(data);
+        res.end(sanitizeProductsJson(data));
       } catch (e) {
         res.writeHead(500);
         res.end(JSON.stringify({ error: e.message }));
