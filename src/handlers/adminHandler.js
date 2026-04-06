@@ -260,7 +260,7 @@ function finishAddProduct(ctx, state) {
     price: state.price,
     description: state.description,
     emoji: state.emoji || '🎁',
-    image: state.fileId ? `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${state.fileId}` : null,
+    image: null,
     fileId: state.fileId || null,
     type: state.type,
     sellerNotify: state.sellerNotify || null,
@@ -268,35 +268,12 @@ function finishAddProduct(ctx, state) {
     active: true
   };
 
-  const saveAndReply = () => {
-    products.push(newProduct);
-    saveProducts(products);
-    ctx.reply(
-      `✅ Товар добавлен!\n\nID: ${newProduct.id}\nНазвание: ${newProduct.name}\nЦена: ${newProduct.price} ₽\nТип: ${newProduct.type}`,
-      Markup.inlineKeyboard([[Markup.button.callback('📋 Список товаров', 'admin_list')]])
-    );
-  };
-
-  if (state.fileId) {
-    const https = require('https');
-    https.get(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/getFile?file_id=${state.fileId}`, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const result = JSON.parse(data);
-          if (result.ok) {
-            newProduct.image = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${result.result.file_path}`;
-          }
-        } catch (e) {}
-        saveAndReply();
-      });
-    }).on('error', () => {
-      saveAndReply();
-    });
-  } else {
-    saveAndReply();
-  }
+  products.push(newProduct);
+  saveProducts(products);
+  ctx.reply(
+    `✅ Товар добавлен!\n\nID: ${newProduct.id}\nНазвание: ${newProduct.name}\nЦена: ${newProduct.price} ₽\nТип: ${newProduct.type}`,
+    Markup.inlineKeyboard([[Markup.button.callback('📋 Список товаров', 'admin_list')]])
+  );
 }
 
 function addProduct(ctx) {

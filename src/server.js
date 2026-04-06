@@ -74,6 +74,56 @@ function startServer(bot) {
       return;
     }
 
+    // Проверка промокода
+    if (req.method === 'POST' && req.url === '/promo/check') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { code } = JSON.parse(body);
+          const promoPath = path.join(__dirname, '../data/promo_codes.json');
+          const promos = JSON.parse(fs.existsSync(promoPath) ? fs.readFileSync(promoPath, 'utf8') : '[]');
+          const promo = promos.find(p => p.code === code.trim().toUpperCase());
+          if (!promo) { res.writeHead(200); res.end(JSON.stringify({ ok: false, error: 'Промокод не найден' })); return; }
+          if (promo.used >= promo.limit) { res.writeHead(200); res.end(JSON.stringify({ ok: false, error: 'Промокод исчерпан' })); return; }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, discount: promo.discount, remaining: promo.limit - promo.used }));
+        } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      });
+      return;
+    }
+
+    // Использование промокода (вызывается при оформлении заказа)
+    if (req.method === 'POST' && req.url === '/promo/use') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { code } = JSON.parse(body);
+          const promoPath = path.join(__dirname, '../data/promo_codes.json');
+          const promos = JSON.parse(fs.existsSync(promoPath) ? fs.readFileSync(promoPath, 'utf8') : '[]');
+          const promo = promos.find(p => p.code === code.trim().toUpperCase());
+          if (!promo || promo.used >= promo.limit) { res.writeHead(200); res.end(JSON.stringify({ ok: false })); return; }
+          promo.used += 1;
+          fs.writeFileSync(promoPath, JSON.stringify(promos, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, remaining: promo.limit - promo.used }));
+        } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      });
+      return;
+    }
+
+    // Список промокодов (для админа)
+    if (req.method === 'GET' && req.url === '/promo/list') {
+      try {
+        const promoPath = path.join(__dirname, '../data/promo_codes.json');
+        const promos = JSON.parse(fs.existsSync(promoPath) ? fs.readFileSync(promoPath, 'utf8') : '[]');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(promos));
+      } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/orders') {
       try {
         const ordersPath = path.join(__dirname, '../data/orders.json');

@@ -27,6 +27,22 @@ bot.catch((err, ctx) => {
 // /start
 bot.command('start', startHandler);
 
+// Промокоды (только для админов)
+bot.command('promo', async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Нет доступа');
+  try {
+    const res = await fetch('https://gans-bot-production.up.railway.app/promo/list');
+    const promos = await res.json();
+    if (!promos.length) return ctx.reply('Промокодов нет');
+    const text = promos.map(p =>
+      `🎟 ${p.code}\n💰 Скидка: ${p.discount}%\n✅ Использовано: ${p.used}/${p.limit}\n⏳ Осталось: ${p.limit - p.used}`
+    ).join('\n\n');
+    ctx.reply(`📋 Промокоды:\n\n${text}`);
+  } catch (e) {
+    ctx.reply('Ошибка получения промокодов: ' + e.message);
+  }
+});
+
 // Админ команды
 bot.command('admin', (ctx) => {
   if (!isAdmin(ctx)) return ctx.reply('❌ Нет доступа');
