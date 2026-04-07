@@ -57,7 +57,7 @@ function adminMenu(ctx) {
     [Markup.button.callback('📋 Список товаров', 'admin_list')],
     [Markup.button.callback('➕ Добавить товар', 'admin_add')],
     [Markup.button.callback('📦 Все заказы', 'admin_orders')],
-    [Markup.button.url('🖥 Открыть админ-панель', 'https://admin-panel-jet-beta.vercel.app')]
+    [Markup.button.webApp('🖥 Открыть админ-панель', 'https://admin-panel-jet-beta.vercel.app')]
   ]));
 }
 
