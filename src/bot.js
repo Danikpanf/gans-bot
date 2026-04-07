@@ -43,6 +43,39 @@ bot.command('promo', async (ctx) => {
   }
 });
 
+// /addpromo КОД СКИДКА ЛИМИТ
+bot.command('addpromo', async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Нет доступа');
+  const args = ctx.message.text.split(' ').slice(1);
+  if (args.length < 3) return ctx.reply('Использование: /addpromo КОД СКИДКА% ЛИМИТ\nПример: /addpromo SALE10 10 50');
+  const [code, discount, limit] = args;
+  try {
+    const res = await fetch('https://gans-bot-production.up.railway.app/promo/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, discount: Number(discount), limit: Number(limit) })
+    });
+    const data = await res.json();
+    if (data.ok) ctx.reply(`✅ Промокод ${code.toUpperCase()} создан!\nСкидка: ${discount}%\nЛимит: ${limit} использований`);
+    else ctx.reply('❌ ' + (data.error || 'Ошибка'));
+  } catch (e) { ctx.reply('Ошибка: ' + e.message); }
+});
+
+// /deletepromo КОД
+bot.command('deletepromo', async (ctx) => {
+  if (!isAdmin(ctx)) return ctx.reply('❌ Нет доступа');
+  const code = ctx.message.text.split(' ')[1];
+  if (!code) return ctx.reply('Использование: /deletepromo КОД');
+  try {
+    await fetch('https://gans-bot-production.up.railway.app/promo/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    ctx.reply(`✅ Промокод ${code.toUpperCase()} удалён`);
+  } catch (e) { ctx.reply('Ошибка: ' + e.message); }
+});
+
 // Админ команды
 bot.command('admin', (ctx) => {
   if (!isAdmin(ctx)) return ctx.reply('❌ Нет доступа');
