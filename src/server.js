@@ -124,6 +124,46 @@ function startServer(bot) {
       return;
     }
 
+    // Создание промокода
+    if (req.method === 'POST' && req.url === '/promo/create') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { code, discount, limit } = JSON.parse(body);
+          if (!code || !discount || !limit) { res.writeHead(400); res.end(JSON.stringify({ ok: false, error: 'code, discount, limit required' })); return; }
+          const promoPath = path.join(__dirname, '../data/promo_codes.json');
+          const promos = JSON.parse(fs.existsSync(promoPath) ? fs.readFileSync(promoPath, 'utf8') : '[]');
+          if (promos.find(p => p.code === code.trim().toUpperCase())) {
+            res.writeHead(200); res.end(JSON.stringify({ ok: false, error: 'Промокод уже существует' })); return;
+          }
+          promos.push({ code: code.trim().toUpperCase(), discount: Number(discount), limit: Number(limit), used: 0 });
+          fs.writeFileSync(promoPath, JSON.stringify(promos, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      });
+      return;
+    }
+
+    // Удаление промокода
+    if (req.method === 'POST' && req.url === '/promo/delete') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { code } = JSON.parse(body);
+          const promoPath = path.join(__dirname, '../data/promo_codes.json');
+          const promos = JSON.parse(fs.existsSync(promoPath) ? fs.readFileSync(promoPath, 'utf8') : '[]');
+          const filtered = promos.filter(p => p.code !== code.trim().toUpperCase());
+          fs.writeFileSync(promoPath, JSON.stringify(filtered, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+        } catch (e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); }
+      });
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/orders') {
       try {
         const ordersPath = path.join(__dirname, '../data/orders.json');
